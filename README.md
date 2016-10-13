@@ -22,9 +22,9 @@ Then:
 
 You must have an AWS account.
 
-The `aws-cli` and `jq` tools are used by the `deploy.sh` script.
-
 ### Install 'aws-cli' & 'jq'
+
+The `aws-cli` and `jq` tools are used by the `deploy.sh` script.
 
 Install the ['aws-cli' command line tool](https://aws.amazon.com/cli/).
 Install 'jq' for the [appropriate operating system](https://stedolan.github.io/jq/download/).
@@ -68,15 +68,14 @@ You can test that the Slack token and the channel ids are working correctly, by 
 If you have cloned this repository in GitHub, you can publish the `docs` directory as a GitHub docs site.
 
 You must edit the [index.html](./docs/index.html) file.
-You must set the `LAMDBA_URL` and `SLACK_SUB_DOMAIN` parameters.
+You must set the `LAMDBA_URL` parameter.
 You may set the `SLACK_CHANNEL_IDS` if you want to customise the channels the user will be added to when they register.
 
 
     <script type="text/javascript">
     // ------------------------------------------------
     // FIXME THESE VALUES SHOULD BE CUSTOMISED
-    var LAMDBA_URL = "http://..."
-    var SLACK_SUB_DOMAIN = "my-slack-team"
+    var AWS_LAMDBA_URL = "http://..."
     var SLACK_CHANNEL_IDS = ""
     //
     // ------------------------------------------------

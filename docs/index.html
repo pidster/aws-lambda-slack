@@ -9,8 +9,7 @@
     <script type="text/javascript">
     // ------------------------------------------------
     // FIXME THESE VALUES SHOULD BE CUSTOMISED
-    var LAMDBA_URL = ""
-    var SLACK_SUB_DOMAIN = ""
+    var AWS_LAMDBA_URL = ""
     var SLACK_CHANNEL_IDS = ""
     //
     // ------------------------------------------------
@@ -53,7 +52,7 @@
 
     $( document ).ready(function() {
       $.ajaxSetup({
-        url: LAMDBA_URL,
+        url: AWS_LAMDBA_URL,
         type: "POST",
         crossDomain: true,
         dataType: "json",
@@ -89,10 +88,7 @@
           // CORS REST call to to lambda service
           var json = {
             email : email,
-            slack: {
-              domain: SLACK_SUB_DOMAIN,
-              channel: SLACK_CHANNEL_IDS
-            }
+            channel: SLACK_CHANNEL_IDS
           }
 
           $.ajax({
