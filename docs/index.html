@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Slack Inviter</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <script type="text/javascript">
+    // ------------------------------------------------
+    // FIXME THESE VALUES SHOULD BE CUSTOMISED
+    var LAMDBA_URL = ""
+    var SLACK_DOMAIN = ""
+    var SLACK_CHANNEL = ""
+    //
+    // ------------------------------------------------
+    </script>
+
+    <style type="text/css">
+    form {
+      max-width: 330px;
+      padding: 15px;
+      margin: 0 auto;
+    }
+    </style>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+  </head>
+  <body>
+    <div class="container">
+      <form id="inputForm" action="fail.html">
+        <h1>Join our Slack</h1>
+        <p>Submit your email address below and we'll send you an invitation!</p>
+        <p>
+          <label for="inputEmail" class="sr-only">Email address</label>
+          <input class="form-control" type="email" id="inputEmail" placeholder="Email address" required autofocus>
+        </p>
+        <p>
+          <input class="btn btn-md btn-primary btn-block" type="submit">
+        </p>
+        <p id="slackDomain"></p>
+        <p id="errorMessage" style="color: #f00"></p>
+      </form>
+    </div>
+
+    <!-- scripts -->
+    <script src="https://code.jquery.com/jquery-3.1.0.min.js" integrity="sha256-cCueBR6CsyA4/9szpPfrX3s49M9vUU5BgtiJj06wt/s="   crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+    <script type="text/javascript">
+    function validEmail(email) {
+      var regex = /^([a-zA-Z0-9_.+-])+\@(([a-zA-Z0-9-])+\.)+([a-zA-Z0-9]{2,})+$/;
+      return regex.test(email);
+    }
+
+    $( document ).ready(function() {
+      $.ajaxSetup({
+        url: LAMDBA_URL,
+        type: "POST",
+        crossDomain: true,
+        dataType: "json",
+        success: function (response) {
+            var resp = JSON.parse(response)
+            alert(resp.status);
+        }
+      });
+
+      $( "#slackDomain" ).text( "<a href=""></a>" )
+      // email input form handler
+      $( "#inputEmail" ).on( "focus", function() {
+        $( "#inputEmail" ).attr( "style", "" )
+        $( "#errorMessage" ).text( "" )
+      })
+
+      $( "#inputForm" ).submit(function( event ) {
+        // prevent default action
+        event.preventDefault();
+
+        // get value from field
+        var email = $( "#inputEmail" ).val()
+
+        // check value is not empty
+        if (email == '' || !validEmail(email) ) {
+          $( "#inputEmail" ).attr( "style", "border: 1px solid #f00" )
+          $( "#errorMessage" ).text( "This '" + email + "' doesn't look like a valid email, please try again...")
+        }
+        /*
+         * TODO check value looks like an email address
+         */
+        else {
+          // CORS REST call to to lambda service
+          var json = {
+            email : email,
+            slack: {
+              domain: SLACK_DOMAIN,
+              channel: SLACK_CHANNEL
+            }
+          }
+
+          $.ajax({
+            data: JSON.stringify(json),
+            error: function (xhr, errStatus) {
+              $( "#inputEmail" ).attr( "style", "border: 1px solid #f00" )
+              $( "#errorMessage" ).text( "Error submitting '" + email + "'; status: " + errStatus)
+              // alert("error sending " + addr);
+            }
+          });
+        }
+      });
+    });
+    </script>
+  </body>
+</html>
