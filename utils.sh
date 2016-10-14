@@ -52,7 +52,7 @@ EOF
 }
 
 log_error() {
-  >&2 echo $1
+  >&2 echo "ERROR: $1"
 }
 
 _slack_rpc() {
@@ -134,26 +134,26 @@ CMD=${ARGS[ $CMD_INDEX ]}
 # 
 
 if [ ! `command -v jq` ]; then
-  log_error "ERROR: The 'jq' command was not found."
+  log_error "The 'jq' command was not found."
+  exit 1
+fi
+
+if [ ! `command -v curl` ]; then
+  log_error "The 'curl' command was not found."
   exit 1
 fi
 
 if [ -z "$SLACK_DOMAIN" ]; then
   do_usage
 
-  log_error "ERROR: Please set the Slack domain parameter."
+  log_error "Please set the Slack domain parameter."
   exit 1
 fi
 
 if [ -z "$SLACK_TOKEN" ]; then
   do_usage
 
-  log_error "ERROR: Please set the Slack token parameter."
-  exit 1
-fi
-
-if [ ! `command -v curl` ]; then
-  log_error "ERROR: The 'curl' command was not found."
+  log_error "Please set the Slack token parameter."
   exit 1
 fi
 

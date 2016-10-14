@@ -1,0 +1,254 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Slack Team Inviter Lambda and API Gateway",
+  "Parameters": {
+    "SlackTeamSubDomain": {
+      "Type": "String",
+      "Description": "The Slack team sub-domain."
+    },
+    "SlackAuthToken": {
+      "Type": "String",
+      "Description": "The Slack authentication token.",
+      "NoEcho": true
+    }
+  },  
+  "Resources": {
+    "LambdaApiGatewayExecutionPermission": {
+        "Type": "AWS::Lambda::Permission",
+        "Properties": {
+            "Action": "lambda:InvokeFunction",
+            "FunctionName": {
+                "Fn::GetAtt": ["SlackInviterFn", "Arn"]
+            },
+            "Principal": "apigateway.amazonaws.com",
+            "SourceArn": {
+                "Fn::Join": ["", ["arn:aws:execute-api:", {
+                    "Ref": "AWS::Region"
+                }, ":", {
+                    "Ref": "AWS::AccountId"
+                }, ":", {
+                    "Ref": "SlackInviterRestApi"
+                }, "/*/*"]]
+            }
+        }
+    },
+    "CreateInviteModel": {
+      "Type": "AWS::ApiGateway::Model",
+      "Properties": {
+        "ContentType": "application/json",
+        "Name": "CreateInvite",
+        "RestApiId": {"Ref": "SlackInviterRestApi"},
+        "Schema": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "title": "CreateInvite",
+          "type": "object",
+          "properties": {
+            "email": {
+              "type": "string"
+            },
+            "channel": {
+              "type": "string"
+            }
+          },
+          "required": ["email"]
+        }
+      }
+    },
+    "ResponseModel": {
+      "Type": "AWS::ApiGateway::Model",
+      "Properties": {
+        "ContentType": "application/json",
+        "Name": "Response",
+        "RestApiId": {"Ref": "SlackInviterRestApi"},
+        "Schema": {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "title": "Response",
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            }
+          },
+          "required": ["ok"]
+        }
+      }
+    },
+    "SlackInviterExecutionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": {
+            "Effect": "Allow",
+            "Principal": {
+                "Service": "lambda.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        },
+        "Path": "/",
+        "Policies": [{
+          "PolicyName": "root",
+          "PolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [{
+              "Effect": "Allow",
+              "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+              ],
+              "Resource": "arn:aws:logs:*:*:*"
+            }]
+          }
+        }]
+      }
+    },
+    "SlackInviterRestApi": {
+      "Type": "AWS::ApiGateway::RestApi",
+      "Properties": {
+        "Name": "SlackInviterRestApi",
+        "Description": "A REST API for Slack"
+      }
+    },
+    "SlackInviterResource": {
+      "Type": "AWS::ApiGateway::Resource",
+      "DependsOn": [
+        "SlackInviterRestApi"
+      ],
+      "Properties": {
+        "RestApiId": { "Ref": "SlackInviterRestApi" },
+        "ParentId": { "Fn::GetAtt": ["SlackInviterRestApi", "RootResourceId"] },
+        "PathPart" : "invite",
+      }
+    },
+    "SlackInviterMethod": {
+      "Type": "AWS::ApiGateway::Method",
+      "DependsOn": [
+        "SlackInviterResource",
+        "SlackInviterFn"
+      ],
+      "Properties": {
+        "ApiKeyRequired": false,
+        "AuthorizationType": "NONE",
+        "RestApiId": { "Ref": "SlackInviterRestApi" },
+        "ResourceId": { "Ref": "SlackInviterResource" },
+        "HttpMethod": "POST",
+        "Integration": {
+          "Credentials": "",
+          "IntegrationHttpMethod" : "POST",
+          "Type" : "AWS_PROXY",
+          "Uri": {
+            "Fn::Join": ["", ["arn:aws:apigateway:", {
+              "Ref": "AWS::Region"
+            }, ":lambda:path/2015-03-31/functions/", {
+              "Fn::GetAtt": ["SlackInviterFn", "Arn"]
+            }, "/invocations"]]
+          },
+          "PassthroughBehavior": "WHEN_NO_MATCH",
+          "IntegrationResponses": [{
+            "ResponseTemplates": {
+              "application/json": "$input.json('$.body')"
+            },
+            "StatusCode": 200
+          }]
+        },
+        "RequestModels": {
+          "application/json": {"Ref": "CreateInviteModel"}
+        },
+        "MethodResponses": [{
+          "StatusCode": 200
+        }]
+      }
+    },
+    "SlackInviterFn": {
+      "Type": "AWS::Lambda::Function",
+      "DependsOn": [
+        "SlackInviterExecutionRole"
+      ],
+      "Properties": {
+        "Runtime": "nodejs4.3",
+        "Handler": "index.handler",
+        "FunctionName": "SlackInviterLambdaFunction",
+        "Role": { "Fn::GetAtt": ["SlackInviterExecutionRole", "Arn"] },
+        "Code": {
+          "ZipFile": { "Fn::Join": ["", [
+              "'use strict';\n",
+              "const slack_team = '", {
+                "Ref": "SlackTeamSubDomain"
+              }, "';\n",
+              "const slack_token = '", {
+                "Ref": "SlackAuthToken"
+              }, "';\n",
+              "const https = require('https');\n",
+              "exports.handler = (event, context, callback) => {\n",
+              "  console.log('event: ' + JSON.stringify(event));\n",
+              "  console.log('context: ' + JSON.stringify(context));\n",
+              "  console.log('slack_team: ' + slack_team);\n",
+              "  const stamp = (new Date().getTime());\n",
+              "  const options = {\n",
+              "    hostname: slack_team + '.slack.com',\n",
+              "    port: 443,\n",
+              "    path: '/api/users.admin.invite?t=' + stamp + '&token=' + slack_token,\n",
+              "    method: 'POST',\n",
+              "    headers: {\n",
+              "        'Content-Type': 'application/x-www-form-urlencoded'\n",
+              "    }\n",
+              "  };\n",
+              "  const req = https.request(options, (res) => {\n",
+              "    let body = '';\n",
+              "    res.setEncoding('utf8');\n",
+              "    res.on('data', (chunk) => body += chunk);\n",
+              "    res.on('end', () => {\n",
+              "      console.log('Successfully processed HTTPS response');\n",
+              "      if (res.headers['content-type'] === 'application/json') {\n",
+              "        body = JSON.parse(body);\n",
+              "      }\n",
+              "      callback(null, { body: JSON.stringify(body) });\n",
+              "    });\n",
+              "  });\n",
+              "\n",
+              "  const payload = event.body ? JSON.parse(event.body) : event;\n",
+              "  let channels = '';\n",
+              "  if (payload.channel) channels = '&channels=' + payload.channel;\n",
+              "  let restricted = '';\n",
+              "  if (payload.restricted) restricted = '&ultra_restricted=' + payload.restricted;\n",
+              "\n",
+              "  const params = 'email=' + encodeURIComponent(payload.email) +\n",
+              "    '&token=' + slack_token + '&set_active=true' + channels + restricted\n",
+              "\n",
+              "  req.on('error', callback);\n",
+              "  req.write(params);\n",
+              "  req.end();\n",
+              "}\n"
+            ]]
+          }
+        }
+      }
+    },
+    "SlackInviterDeployment": {
+      "Type" : "AWS::ApiGateway::Deployment",
+      "DependsOn": [
+        "SlackInviterRestApi",
+        "SlackInviterMethod"
+      ],
+      "Properties" : {
+        "RestApiId" : { "Ref": "SlackInviterRestApi" },
+        "Description" : "Production deployment",
+        "StageName" : "prod"
+      }
+    }
+  },
+  "Outputs": {
+    "ApiUrl": {
+      "Description": "Invoke URL for your API.",
+      "Value": {
+        "Fn::Join": ["", ["https://", {
+          "Ref": "SlackInviterRestApi"
+        }, ".execute-api.", {
+          "Ref": "AWS::Region"
+        }, ".amazonaws.com/prod/invite"]]
+      }
+    }
+  }
+}
