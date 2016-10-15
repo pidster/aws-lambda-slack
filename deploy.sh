@@ -21,7 +21,7 @@ log_error() {
 do_usage_mini() {
   cat >&2 <<EOF
 Usage:
-  $SCRIPT_NAME <options> [ create | update | delete | validate ]
+  $SCRIPT_NAME <options> [ create | update | delete | describe | geturls | validate | test <email> ]
 
 Options:
   -d, --domain     The Slack team domain
@@ -43,12 +43,12 @@ EOF
 # ------------------------------------------------------------------------
 
 _pre_process_template() {
-  if [ -f "$SCRIPT_DIR/cloudformation.json" ]; then
-    log_error "WARN: Found existing cloudformation.json"
-    rm "$SCRIPT_DIR/cloudformation.json"
-  fi
-
-  sed -e "s/\${SLACK_TOKEN}/$SLACK_TOKEN/" "$SCRIPT_DIR/template.json" > "$SCRIPT_DIR/cloudformation.json"
+  # if [ -f "$SCRIPT_DIR/cloudformation.json" ]; then
+  #   log_error "WARN: Found existing cloudformation.json"
+  #   rm "$SCRIPT_DIR/cloudformation.json"
+  # fi
+  #
+  # sed -e "s/\${SLACK_TOKEN}/$SLACK_TOKEN/" "$SCRIPT_DIR/template.json" > "$SCRIPT_DIR/cloudformation.json"
   TEMPLATE="$SCRIPT_DIR/cloudformation.json"
 }
 
@@ -65,24 +65,26 @@ do_validate() {
   _pre_process_template
 
   if [ -z "$SLACK_DOMAIN" ]; then
-    do_usage
+    do_usage_mini
 
     log_error "Please set the Slack domain parameter."
     exit 1
   fi
 
   if [ -z "$SLACK_TOKEN" ]; then
-    do_usage
+    do_usage_mini
 
     log_error "Please set the Slack token parameter."
     exit 1
   fi
 
   if [ -z "$AWS_REGION" ]; then
-    do_usage
+    do_usage_mini
 
     log_error "Please set the AWS region"
     exit 1
+  else
+    echo "Using AWS Region: $AWS_REGION"
   fi
 
   # TODO CAPTURE ERROR CODE & exit
@@ -96,9 +98,10 @@ do_create() {
       ParameterKey=SlackTeamSubDomain,ParameterValue=$SLACK_DOMAIN \
       ParameterKey=SlackAuthToken,ParameterValue=$SLACK_TOKEN \
       --capabilities CAPABILITY_IAM \
-      --stack-name slackinviter --template-body file:////$TEMPLATE \
+      --stack-name slackinviter --template-body file:////$TEMPLATE | jq \
     && echo "Deploy requested, waiting on completion..." \
-    && $AWS_CLI --region $AWS_REGION cloudformation wait stack-create-complete --stack-name slackinviter
+    && $AWS_CLI --region $AWS_REGION cloudformation wait stack-create-complete --stack-name slackinviter \
+    && do_geturls
 }
 
 do_update() {
@@ -113,6 +116,10 @@ do_update() {
   #   && $AWS_CLI cloudformation wait stack-update-complete --stack-name slackinviter
 }
 
+do_geturls() {
+  $AWS_CLI --region $AWS_REGION cloudformation describe-stacks | jq '.Stacks[] | {id: .StackId, url: .Outputs[].OutputValue}'
+}
+
 do_describe() {
   $AWS_CLI --region $AWS_REGION cloudformation describe-stack-events --stack-name slackinviter
 }
@@ -123,6 +130,18 @@ do_delete() {
     && $AWS_CLI --region $AWS_REGION cloudformation wait stack-delete-complete --stack-name slackinviter
 }
 
+do_test() {
+  URL="$(do_geturls | jq -r '.url')"
+  EMAIL="${PARAMS[0]}"
+
+  if [ -z "$EMAIL" ]; then
+    log_error "'test' needs an email address as a parameter"
+    exit 1
+  fi
+
+  echo "Testing url: $URL with email: $EMAIL"
+  curl -vvv -X POST $URL -H 'Content-type: application/json' -d "{ \"email\": \"$EMAIL\" }"
+}
 
 do_estimate() {
 
@@ -160,10 +179,10 @@ CMD=${ARGS[ $CMD_INDEX ]}
 
 
 # ------------------------------------------------------------------------
-# 
+# check other utils are present
 
 if [ ! `command -v aws` ]; then
-  errout "The AWS CLI command was not found"
+  log_error "The AWS CLI command was not found"
   exit 1
 fi
 
@@ -175,7 +194,7 @@ if [ ! `command -v jq` ]; then
 fi
 
 # ------------------------------------------------------------------------
-# 
+# process sub-command 
 
 case "$CMD" in
   create)
@@ -192,6 +211,14 @@ case "$CMD" in
 
   describe)
     do_describe
+    ;;
+
+  geturls)
+    do_geturls
+    ;;
+
+  test)
+    do_test
     ;;
 
   estimate)
