@@ -12,7 +12,7 @@ Then:
 2. Get a Slack team account & [an authentication token](https://api.slack.com/docs/oauth-test-tokens)
 3. The ['jq' command line tool](https://stedolan.github.io/jq/)
 4. The ['aws-cli' command line tool](https://aws.amazon.com/cli/)
-5. run `utils.sh -d <slack-team> -t <token> channels`
+5. run `utils.sh -d <slack-team> -t <slack-test-token> channels`
 6. run `./deploy.sh`
 
 
@@ -39,7 +39,7 @@ Install 'jq' for the [appropriate operating system](https://stedolan.github.io/j
 
 The provided `utils.sh` script has a `channels` command.
 
-    ./utils.sh -d <slack-team-subdomain> -t <token> channels
+    ./utils.sh -d <slack-team-subdomain> -t <slack-test-token> channels
 
 You will see some output, like:
 
@@ -55,13 +55,26 @@ You will see some output, like:
 
 You can test that the Slack token and the channel ids are working correctly, by running the `utils` script, and inviting a user by their email address to your team. The channel ids can be passed as well, if you wish to customise the list of channels beyond the defaults set in Slack.
 
-    ./utils.sh -d <slack-team-subdomain> -t <token> invite <you@yourdomain.com> C0AA00AAA,C0AA00AAA
+    ./utils.sh -d <slack-team-subdomain> -t <slack-test-token> invite <you@yourdomain.com> C0AA00AAA,C0AA00AAA
 
-### Deploy the application to Lambda
+### Deploy the application to AWS Lambda
 
-    ./deploy.sh
+    ./deploy.sh -d <slack-team-subdomain> -t <slack-test-token> create
 
+or, if you prefer to set the Slack values as environment variables:
 
+    export SLACK_DOMAIN=<slack-team-subdomain>
+    export SLACK_TOKEN=<slack-test-token>
+    ./deploy.sh create
+
+When `create` has completed, the output will give an AWS ARN for the CloudFormation Stack and the URL for the API Gateway HTTP. It will look something like this:
+
+    {
+      "id": "arn:aws:cloudformation:us-west-2:111111111111:stack/slackinviter/1a1a1a1a-1a1a-1a1a-1a1a-1a1a1a1a1a1a",
+      "url": "https://1a1a1a1a1a.execute-api.us-west-2.amazonaws.com/prod/invite"
+    }
+
+The `url` value is used in the next section.
 
 ### Deploy the web UI
 
