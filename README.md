@@ -53,7 +53,13 @@ You will see some output, like:
       "id": "C0AA00AAA"
     }
 
-You can test that the Slack token and the channel ids are working correctly, by running the `utils` script, and inviting a user by their email address to your team. The channel ids can be passed as well, if you wish to customise the list of channels beyond the defaults set in Slack.
+You can test that the Slack token and the channel ids are working correctly, by running the `utils` script, and inviting a user by their email address to your team. The channel ids can be passed as well, if you have a paid team and wish to customise the list of channels beyond the default set in Slack.
+
+For free teams:
+
+    ./utils.sh -d <slack-team-subdomain> -t <slack-test-token> invite <you@yourdomain.com>
+
+For paid teams:
 
     ./utils.sh -d <slack-team-subdomain> -t <slack-test-token> invite <you@yourdomain.com> C0AA00AAA,C0AA00AAA
 
@@ -67,7 +73,7 @@ or, if you prefer to set the Slack values as environment variables:
     export SLACK_TOKEN=<slack-test-token>
     ./deploy.sh create
 
-When `create` has completed, the output will give an AWS ARN for the CloudFormation Stack and the URL for the API Gateway HTTP. It will look something like this:
+When `create` has completed, the output will give an AWS ARN for the CloudFormation Stack and the URL for the API Gateway HTTP. It will look something like this (NB these are not 'real' values):
 
     {
       "id": "arn:aws:cloudformation:us-west-2:111111111111:stack/slackinviter/1a1a1a1a-1a1a-1a1a-1a1a-1a1a1a1a1a1a",
