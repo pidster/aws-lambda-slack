@@ -13,7 +13,7 @@ Then:
 3. The ['jq' command line tool](https://stedolan.github.io/jq/)
 4. The ['aws-cli' command line tool](https://aws.amazon.com/cli/)
 5. run `utils.sh -d <slack-team> -t <slack-test-token> channels`
-6. run `./deploy.sh`
+6. run `./deploy.sh  -d <slack-team> -t <slack-test-token> create`
 
 
 ## Not so fast!
