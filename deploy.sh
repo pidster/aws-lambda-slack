@@ -64,6 +64,26 @@ do_validate() {
 
   _pre_process_template
 
+  if [ -z "$AWS_REGION" ]; then
+    do_usage_mini
+
+    log_error "Please set the AWS region"
+    exit 1
+  else
+    echo "Using AWS Region: $AWS_REGION"
+  fi
+
+  # TODO CAPTURE ERROR CODE & exit
+  RET=`$AWS_CLI --region $AWS_REGION cloudformation validate-template --template-body file:////$TEMPLATE 2>&1`
+  RES="$?"
+  if [ ! $RES == 0 ]; then
+    echo "$RET"
+  fi
+  return $RES
+}
+
+do_create() {
+
   if [ -z "$SLACK_DOMAIN" ]; then
     do_usage_mini
 
@@ -78,30 +98,28 @@ do_validate() {
     exit 1
   fi
 
-  if [ -z "$AWS_REGION" ]; then
+  if [ -z "$WEB_ORIGIN" ]; then
     do_usage_mini
 
-    log_error "Please set the AWS region"
+    log_error "Please set the origin parameter for CORS."
     exit 1
-  else
-    echo "Using AWS Region: $AWS_REGION"
   fi
-
-  # TODO CAPTURE ERROR CODE & exit
-  $AWS_CLI --region $AWS_REGION cloudformation validate-template --template-body file:////$TEMPLATE
-}
-
-do_create() {
 
   do_validate \
     && $AWS_CLI --region $AWS_REGION cloudformation create-stack --parameters \
       ParameterKey=SlackTeamSubDomain,ParameterValue=$SLACK_DOMAIN \
-      ParameterKey=SlackAuthToken,ParameterValue=$SLACK_TOKEN \
-      --capabilities CAPABILITY_IAM \
+        ParameterKey=SlackAuthToken,ParameterValue=$SLACK_TOKEN \
+        ParameterKey=Origin,ParameterValue=$WEB_ORIGIN \
+      --capabilities CAPABILITY_NAMED_IAM \
       --stack-name slackinviter --template-body file:////$TEMPLATE | jq \
     && echo "Deploy requested, waiting on completion..." \
-    && $AWS_CLI --region $AWS_REGION cloudformation wait stack-create-complete --stack-name slackinviter \
-    && do_geturls
+    && $AWS_CLI --region $AWS_REGION cloudformation wait stack-create-complete --stack-name slackinviter
+  RES="$?"
+  if [ 0 == $RES ]; then
+    do_geturls
+  else
+    do_describe | jq '.StackEvents[] | select(.ResourceStatus | contains("FAILED"))'
+  fi
 }
 
 do_update() {
@@ -156,13 +174,16 @@ do_estimate() {
 # ------------------------------------------------------------------------
 # read the options
 
-while getopts ":d:t:v" opt; do
+while getopts ":d:t:o:v" opt; do
   case $opt in
     d)
       SLACK_DOMAIN="$OPTARG";
       ;;
     t)
       SLACK_TOKEN="$OPTARG";
+      ;;
+    o)
+      WEB_ORIGIN="$OPTARG";
       ;;
     v)
       OUTPUT_VERBOSE="-vvv";

@@ -10,7 +10,11 @@
       "Type": "String",
       "Description": "The Slack authentication token.",
       "NoEcho": true
-    }
+    },
+    "Origin": {
+      "Description": "Origin URL for CORS",
+      "Type": "String"
+    },
   },  
   "Resources": {
     "LambdaApiGatewayExecutionPermission": {
@@ -18,7 +22,7 @@
         "Properties": {
             "Action": "lambda:InvokeFunction",
             "FunctionName": {
-                "Fn::GetAtt": ["SlackInviterFn", "Arn"]
+                "Fn::GetAtt": ["SlackInviterLambda", "Arn"]
             },
             "Principal": "apigateway.amazonaws.com",
             "SourceArn": {
@@ -48,6 +52,9 @@
             },
             "channel": {
               "type": "string"
+            },
+            "restricted": {
+              "type": "boolean"
             }
           },
           "required": ["email"]
@@ -101,10 +108,37 @@
                 "logs:CreateLogStream",
                 "logs:PutLogEvents"
               ],
-              "Resource": "arn:aws:logs:*:*:*"
+              "Resource": "*"
             }]
           }
-        }]
+        }],
+        "RoleName": {
+          "Fn::Join": ["", ["lambda-logs-", {
+            "Ref": "AWS::Region"
+          }]]
+        }
+      }
+    },
+    "SlackInviterLoggingRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": {
+            "Effect": "Allow",
+            "Principal": {
+                "Service": "apigateway.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        },
+        "Path": "/",
+        "ManagedPolicyArns": ["arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"],
+        "RoleName": {
+          "Fn::Join": ["", ["apigateway-logs-", {
+            "Ref": "AWS::Region"
+          }]]
+        }
       }
     },
     "SlackInviterRestApi": {
@@ -112,6 +146,16 @@
       "Properties": {
         "Name": "SlackInviterRestApi",
         "Description": "A REST API for Slack"
+      }
+    },
+    "SlackInviterRestApiAccount": {
+      "Type": "AWS::ApiGateway::Account",
+      "DependsOn": [
+        "SlackInviterRestApi",
+        "SlackInviterLoggingRole"
+      ],
+      "Properties": {
+        "CloudWatchRoleArn": { "Fn::GetAtt": ["SlackInviterLoggingRole", "Arn"] }
       }
     },
     "SlackInviterResource": {
@@ -125,11 +169,66 @@
         "PathPart" : "invite",
       }
     },
-    "SlackInviterMethod": {
+    "SlackInviterOptionsMethod": {
+      "Type": "AWS::ApiGateway::Method",
+      "DependsOn": [
+        "SlackInviterResource"
+      ],
+      "Properties": {
+        "ApiKeyRequired": false,
+        "AuthorizationType": "NONE",
+        "RestApiId": { "Ref": "SlackInviterRestApi" },
+        "ResourceId": { "Ref": "SlackInviterResource" },
+        "HttpMethod": "OPTIONS",
+        "Integration": {
+          "IntegrationHttpMethod" : "OPTIONS",
+          "Type" : "MOCK",
+          "Uri": {
+            "Fn::Join": ["", ["arn:aws:apigateway:", {
+              "Ref": "AWS::Region"
+            }, ":lambda:path/2015-03-31/functions/", {
+              "Fn::GetAtt": ["SlackInviterLambda", "Arn"]
+            }, "/invocations"]]
+          },
+          "PassthroughBehavior": "WHEN_NO_MATCH",
+          "RequestTemplates": {
+            "application/json": "{ \"statusCode\": 200 }"
+          },
+          "IntegrationResponses": [{
+            "ResponseTemplates": {
+              "application/json": "{}"
+            },
+            "ResponseParameters": {
+              "method.response.header.Access-Control-Allow-Credentials": "'true'",
+              "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+              "method.response.header.Access-Control-Allow-Methods": "'POST,OPTIONS'",
+              "method.response.header.Access-Control-Allow-Origin": { "Fn::Join": ["", ["'", { "Ref" : "Origin" }, "'"]] }
+            },
+            "StatusCode": 200
+          }]
+        },
+        "RequestParameters": {
+          "method.request.header.Origin": true,
+          "method.request.header.Access-Control-Request-Method": true,
+          "method.request.header.Access-Control-Request-Headers": true
+        },
+        "MethodResponses": [{
+          "ResponseParameters": {
+            "method.response.header.Access-Control-Allow-Credentials": true,
+            "method.response.header.Access-Control-Allow-Headers": true,
+            "method.response.header.Access-Control-Allow-Methods": true,
+            "method.response.header.Access-Control-Allow-Origin": true
+          },
+          "StatusCode": 200
+        }]
+      }
+    },
+    "SlackInviterPostMethod": {
       "Type": "AWS::ApiGateway::Method",
       "DependsOn": [
         "SlackInviterResource",
-        "SlackInviterFn"
+        "SlackInviterLambda",
+        "SlackInviterOptionsMethod"
       ],
       "Properties": {
         "ApiKeyRequired": false,
@@ -138,14 +237,13 @@
         "ResourceId": { "Ref": "SlackInviterResource" },
         "HttpMethod": "POST",
         "Integration": {
-          "Credentials": "",
           "IntegrationHttpMethod" : "POST",
           "Type" : "AWS_PROXY",
           "Uri": {
             "Fn::Join": ["", ["arn:aws:apigateway:", {
               "Ref": "AWS::Region"
             }, ":lambda:path/2015-03-31/functions/", {
-              "Fn::GetAtt": ["SlackInviterFn", "Arn"]
+              "Fn::GetAtt": ["SlackInviterLambda", "Arn"]
             }, "/invocations"]]
           },
           "PassthroughBehavior": "WHEN_NO_MATCH",
@@ -159,12 +257,22 @@
         "RequestModels": {
           "application/json": {"Ref": "CreateInviteModel"}
         },
+        "RequestParameters": {
+          "method.request.header.Origin": true,
+          "method.request.header.Access-Control-Request-Method": true,
+          "method.request.header.Access-Control-Request-Headers": true
+        },
         "MethodResponses": [{
+          "ResponseParameters": {
+            "method.response.header.Access-Control-Allow-Headers": true,
+            "method.response.header.Access-Control-Allow-Methods": true,
+            "method.response.header.Access-Control-Allow-Origin": true
+          },
           "StatusCode": 200
         }]
       }
     },
-    "SlackInviterFn": {
+    "SlackInviterLambda": {
       "Type": "AWS::Lambda::Function",
       "DependsOn": [
         "SlackInviterExecutionRole"
@@ -186,8 +294,6 @@
               "const https = require('https');\n",
               "exports.handler = (event, context, callback) => {\n",
               "  console.log('event: ' + JSON.stringify(event));\n",
-              "  console.log('context: ' + JSON.stringify(context));\n",
-              "  console.log('slack_team: ' + slack_team);\n",
               "  const stamp = (new Date().getTime());\n",
               "  const options = {\n",
               "    hostname: slack_team + '.slack.com',\n",
@@ -198,16 +304,16 @@
               "        'Content-Type': 'application/x-www-form-urlencoded'\n",
               "    }\n",
               "  };\n",
+              "  const origin = event.headers.Origin;\n",
               "  const req = https.request(options, (res) => {\n",
               "    let responseBody = '';\n",
               "    res.setEncoding('utf8');\n",
               "    res.on('data', (chunk) => responseBody += chunk);\n",
               "    res.on('end', () => {\n",
-              "      console.log('Successfully processed HTTPS response');\n",
               "      if (res.headers['content-type'] === 'application/json') {\n",
               "        responseBody = JSON.parse(responseBody);\n",
               "      }\n",
-              "      callback(null, { body: JSON.stringify(responseBody) });\n",
+              "      callback(null, { headers: { 'Access-Control-Allow-Origin': origin }, body: JSON.stringify(responseBody) });\n",
               "    });\n",
               "  });\n",
               "\n",
@@ -232,13 +338,40 @@
     "SlackInviterDeployment": {
       "Type" : "AWS::ApiGateway::Deployment",
       "DependsOn": [
-        "SlackInviterRestApi",
-        "SlackInviterMethod"
+        "SlackInviterOptionsMethod",
+        "SlackInviterPostMethod"
       ],
       "Properties" : {
         "RestApiId" : { "Ref": "SlackInviterRestApi" },
         "Description" : "Production deployment",
-        "StageName" : "prod"
+        "StageName" : "unused_stage"
+      }
+    },
+    "SlackInviterStage": {
+      "Type" : "AWS::ApiGateway::Stage",
+      "DependsOn": [
+        "SlackInviterRestApi",
+        "SlackInviterDeployment"
+      ],
+      "Properties" : {
+        "StageName": "prod",
+        "Description": "Production Stage",
+        "RestApiId": { "Ref": "SlackInviterRestApi" },
+        "DeploymentId": { "Ref": "SlackInviterDeployment" },
+        "Variables": { "Stack": "prod" },
+        "MethodSettings": [{
+          "ResourcePath": "/invite",
+          "HttpMethod": "OPTIONS",
+          "MetricsEnabled": "true",
+          "DataTraceEnabled": "true",
+          "LoggingLevel": "INFO"
+        }, {
+          "ResourcePath": "/invite",
+          "HttpMethod": "POST",
+          "MetricsEnabled": "true",
+          "DataTraceEnabled": "true",
+          "LoggingLevel": "INFO"
+        }]
       }
     }
   },

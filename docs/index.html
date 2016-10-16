@@ -9,8 +9,8 @@
     <script type="text/javascript">
     // ------------------------------------------------
     // FIXME THESE VALUES SHOULD BE CUSTOMISED
-    var AWS_LAMDBA_URL = ""
-    var SLACK_CHANNEL_IDS = ""
+    var AWS_LAMDBA_URL = "";
+    var SLACK_CHANNEL_IDS = "";
     //
     // ------------------------------------------------
     </script>
@@ -56,24 +56,28 @@
         type: "POST",
         crossDomain: true,
         dataType: "json",
+        contentType: "application/json",
+        xhrFields: {
+          withCredentials: true
+        },
         success: function (response) {
-            var resp = JSON.parse(response)
-
-            if (resp.ok) {
-              $( "#errorMessage" ).text('OK!');
-            }
-            else {
-              $( "#errorMessage" ).text("Error submitting '" + resp.error);
-            }
+          console.log('SUCCESS:' + response);
+          var resp = JSON.parse(response)
+          if (resp.ok) {
+            $( "#errorMessage" ).text('Now check your email!');
+          }
+          else {
+            $( "#errorMessage" ).text("Error submitting '" + resp.error);
+          }
         }
       });
 
-      $( "#slackDomain" ).html( '<a href=\"\"></a>' )
+      $( "#slackDomain" ).html( '<a href=\"\"></a>' );
       // email input form handler
       $( "#inputEmail" ).on( "focus", function() {
         $( "#inputEmail" ).attr( "style", "" )
         $( "#errorMessage" ).text( "" )
-      })
+      });
 
       $( "#inputForm" ).submit(function( event ) {
         // prevent default action
@@ -84,8 +88,8 @@
 
         // check value is not empty
         if (email == '' || !validEmail(email) ) {
-          $( "#inputEmail" ).attr( "style", "border: 1px solid #f00" )
-          $( "#errorMessage" ).text( "This '" + email + "' doesn't look like a valid email, please try again...")
+          $( "#inputEmail" ).attr( "style", "border: 1px solid #f00" );
+          $( "#errorMessage" ).text( "This '" + email + "' doesn't look like a valid email, please try again...");
         }
         /*
          * TODO check value looks like an email address
@@ -103,6 +107,8 @@
           $.ajax({
             data: JSON.stringify(json),
             error: function (xhr, errStatus) {
+              console.log('ERROR:' + errStatus);
+              console.log('ERROR:' + JSON.stringify(xhr));
               $( "#inputEmail" ).attr( "style", "border: 1px solid #f00" )
               $( "#errorMessage" ).text( "Error submitting '" + email + "'; status: " + errStatus)
               // alert("error sending " + addr);
