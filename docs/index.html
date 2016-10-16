@@ -61,7 +61,6 @@
           withCredentials: true
         },
         success: function (response) {
-          console.log('SUCCESS:' + response);
           var resp = JSON.parse(response)
           if (resp.ok) {
             $( "#errorMessage" ).text('Now check your email!');
@@ -104,14 +103,14 @@
             json.channel = SLACK_CHANNEL_IDS
           }
 
+          $( "#errorMessage" ).text('Sending...');
+
           $.ajax({
             data: JSON.stringify(json),
             error: function (xhr, errStatus) {
-              console.log('ERROR:' + errStatus);
               console.log('ERROR:' + JSON.stringify(xhr));
               $( "#inputEmail" ).attr( "style", "border: 1px solid #f00" )
-              $( "#errorMessage" ).text( "Error submitting '" + email + "'; status: " + errStatus)
-              // alert("error sending " + addr);
+              $( "#errorMessage" ).text( "Error! '" + xhr.error)
             }
           });
         }
