@@ -65,7 +65,7 @@ For paid teams:
 
 ### Deploy the application to AWS Lambda
 
-    ./deploy.sh -d <slack-team-subdomain> -t <slack-test-token> create
+    ./deploy.sh -d <slack-team-subdomain> -t <slack-test-token> -o http://www.myhost.com/ create
 
 or, if you prefer to set the Slack values as environment variables:
 
