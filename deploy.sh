@@ -208,7 +208,7 @@ if [ ! `command -v aws` ]; then
   exit 1
 fi
 
-AWS_CLI=`which aws`
+AWS_CLI=`command -v aws`
 
 if [ ! `command -v jq` ]; then
   log_error "The 'jq' command was not found."
