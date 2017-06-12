@@ -35,7 +35,7 @@
           <input class="form-control" type="email" id="inputEmail" placeholder="Email address" required autofocus>
         </p>
         <p>
-          <input class="btn btn-md btn-primary btn-block" type="submit">Join Slack</input>
+          <input class="btn btn-md btn-primary btn-block" type="submit" value="Join Slack">
         </p>
         <p id="slackDomain"></p>
         <p id="errorMessage" style="color: #f00"></p>
@@ -66,8 +66,14 @@
           if (resp.ok) {
             $( "#errorMessage" ).text('Now check your email!');
           }
+          else if (resp.error == 'already_in_team') {
+            $( "#errorMessage" ).text("Already joined this team! Please log in at <a href=\"" + SLACK_TEAM_URL + "\">" + SLACK_TEAM_URL + "</a>");
+          }
+          else if (resp.error == 'already_invited') {
+            $( "#errorMessage" ).text("Already invited! Please check your email.");
+          }
           else {
-            $( "#errorMessage" ).text("Error submitting '" + resp.error);
+            $( "#errorMessage" ).text("Error submitting '" + resp.error + "'");
           }
         }
       });
@@ -112,12 +118,7 @@
               console.log('ERROR:' + JSON.stringify(xhr));
 
               $( "#inputEmail" ).attr( "style", "border: 1px solid #f00" )
-              if (xhr.error == 'already_invited') {
-                $( "#errorMessage" ).text("Already invited! Try logging in at: <a href=\"" + SLACK_TEAM_URL "\">" + SLACK_TEAM_URL + "</a>.")
-              }
-              else {
-                $( "#errorMessage" ).text( "Error! '" + xhr.error + "'")
-              }
+              $( "#errorMessage" ).text( "Error! '" + xhr.error + "'")
             }
           });
         }
