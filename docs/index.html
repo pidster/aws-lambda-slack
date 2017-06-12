@@ -9,6 +9,7 @@
     <script type="text/javascript">
     // ------------------------------------------------
     // FIXME THESE VALUES SHOULD BE CUSTOMISED
+    var SLACK_TEAM_URL = "";
     var AWS_LAMDBA_URL = "";
     var SLACK_CHANNEL_IDS = "";
     //
@@ -34,7 +35,7 @@
           <input class="form-control" type="email" id="inputEmail" placeholder="Email address" required autofocus>
         </p>
         <p>
-          <input class="btn btn-md btn-primary btn-block" type="submit" value="Join Slack">
+          <input class="btn btn-md btn-primary btn-block" type="submit">Join Slack</input>
         </p>
         <p id="slackDomain"></p>
         <p id="errorMessage" style="color: #f00"></p>
@@ -109,8 +110,14 @@
             data: JSON.stringify(json),
             error: function (xhr, errStatus) {
               console.log('ERROR:' + JSON.stringify(xhr));
+
               $( "#inputEmail" ).attr( "style", "border: 1px solid #f00" )
-              $( "#errorMessage" ).text( "Error! '" + xhr.error)
+              if (xhr.error == 'already_invited') {
+                $( "#errorMessage" ).text("Already invited! Try logging in at: <a href=\"" + SLACK_TEAM_URL "\">" + SLACK_TEAM_URL + "</a>.")
+              }
+              else {
+                $( "#errorMessage" ).text( "Error! '" + xhr.error + "'")
+              }
             }
           });
         }
