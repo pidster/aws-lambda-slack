@@ -94,8 +94,9 @@ You may set the `SLACK_CHANNEL_IDS` if you want to customise the channels the us
     <script type="text/javascript">
     // ------------------------------------------------
     // THESE VALUES MUST BE CUSTOMISED
-    var AWS_LAMDBA_URL = "http://..."
-    var SLACK_CHANNEL_IDS = ""
+    var SLACK_TEAM_URL = "https://...";
+    var AWS_LAMDBA_URL = "https://...";
+    var SLACK_CHANNEL_IDS = "";
     //
     // ------------------------------------------------
     </script>
